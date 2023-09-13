@@ -45,7 +45,7 @@
         '<(output_dir)/liblibbf.a',
       ],
       'escargot_configs': [
-        '-DESCARGOT_SMALL_CONFIG=1',
+        '-DESCARGOT_SMALL_CONFIG=<(escargot_small_config)',
         '-DESCARGOT_USE_CUSTOM_LOGGING=ON',
         '-DESCARGOT_ARCH=<(target_arch)',
         '-DESCARGOT_HOST=<(build_host)',
@@ -54,6 +54,7 @@
         '-DESCARGOT_THREADING=<(escargot_threading)',
         '-DESCARGOT_ASAN=<(asan)',
         '-DESCARGOT_DEBUGGER=<(escargot_debugger)',
+        '-DESCARGOT_WASM=<(escargot_wasm)',
       ],
     },
     'all_dependent_settings': {

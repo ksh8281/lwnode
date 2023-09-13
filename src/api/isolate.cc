@@ -471,6 +471,22 @@ IsolateWrap* IsolateWrap::GetCurrent() {
   return s_currentIsolate;
 }
 
+void* IsolateWrap::allocateHandleScopeWrap()
+{
+  if (handleScopePool_.size()) {
+    auto ret = handleScopePool_.back();
+    handleScopePool_.pop_back();
+    return ret;
+  }
+  return GC_MALLOC(sizeof(HandleScopeWrap));
+}
+
+void IsolateWrap::releaseHandleScopeWrap(void* ptr)
+{
+  memset(ptr, 0, sizeof(HandleScopeWrap));
+  handleScopePool_.push_back(ptr);
+}
+
 void IsolateWrap::pushHandleScope(HandleScopeWrap* handleScope) {
   handleScopes_.push_back(handleScope);
 }
@@ -480,9 +496,10 @@ void IsolateWrap::popHandleScope(v8Scope_t* handleScope) {
 
   LWNODE_CALL_TRACE_ID(ISOWRAP);
   // TODO: remove the following line and simply pop the last
-  handleScopes_.back()->clear();
-
+  auto last = handleScopes_.back();
+  last->clear();
   handleScopes_.pop_back();
+  releaseHandleScopeWrap(last);
 }
 
 void IsolateWrap::addHandleToCurrentScope(HandleWrap* value) {

@@ -65,6 +65,8 @@ def lwnode_gyp_opts(opts):
   args += ['-Descargot_build_mode=' + ('debug' if opts.debug else 'release')]
   args += ['-Descargot_lib_type=' + str(opts.escargot_lib_type)]
   args += ['-Descargot_threading=' + n(not opts.without_escargot_threading)]
+  args += ['-Descargot_wasm=' + n(not opts.without_escargot_wasm)]
+  args += ['-Descargot_small_config=' + n(not opts.without_escargot_small_config)]
   args += ['-Descargot_debugger=' + n(opts.escargot_debugger)]
 
   return args
@@ -185,6 +187,22 @@ def setupCLIOptions(parser):
       dest='without_escargot_threading',
       default=False,
       help='Disable Escargot threading (%default)',
+  )
+
+  lwnode_optgroup.add_option(
+      '--without-escargot-wasm',
+      action='store_true',
+      dest='without_escargot_wasm',
+      default=False,
+      help='Disable Escargot WASM (%default)',
+  )
+
+  lwnode_optgroup.add_option(
+      '--without-escargot-small-config',
+      action='store_true',
+      dest='without_escargot_small_config',
+      default=False,
+      help='Disable Escargot small config (%default)',
   )
 
   lwnode_optgroup.add_option(

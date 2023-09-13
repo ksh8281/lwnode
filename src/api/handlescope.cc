@@ -26,6 +26,24 @@
 
 namespace EscargotShim {
 
+HandleScopeWrap* HandleScopeWrap::create(IsolateWrap* isolate,
+                                         v8::HandleScope* scope, HandleScopeWrap::Type type)
+{
+  return new (isolate->allocateHandleScopeWrap()) HandleScopeWrap(scope, type);
+}
+
+HandleScopeWrap* HandleScopeWrap::create(IsolateWrap* isolate,
+                                         v8::SealHandleScope* scope, HandleScopeWrap::Type type)
+{
+  return new (isolate->allocateHandleScopeWrap()) HandleScopeWrap(scope, type);
+}
+
+HandleScopeWrap* HandleScopeWrap::create(IsolateWrap* isolate,
+                                         v8::EscapableHandleScope* scope, HandleScopeWrap::Type type)
+{
+  return new (isolate->allocateHandleScopeWrap()) HandleScopeWrap(scope, type);
+}
+
 HandleScopeWrap::HandleScopeWrap(v8::HandleScope* scope,
                                  HandleScopeWrap::Type type)
     : type_(type), v8scope_(reinterpret_cast<void*>(scope)) {}
@@ -33,7 +51,7 @@ HandleScopeWrap::HandleScopeWrap(v8::HandleScope* scope,
 HandleScopeWrap::HandleScopeWrap(v8::SealHandleScope* scope,
                                  HandleScopeWrap::Type type)
     : type_(type), v8scope_(reinterpret_cast<void*>(scope)) {}
-
+ 
 HandleScopeWrap::HandleScopeWrap(v8::EscapableHandleScope* scope,
                                  HandleScopeWrap::Type type)
     : type_(type), v8scope_(reinterpret_cast<void*>(scope)) {}

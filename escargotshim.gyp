@@ -85,6 +85,7 @@
         '-Wno-unused-result',
         '-fexceptions',
         '-fvisibility=hidden',
+        '-g3',
       ],
       'direct_dependent_settings': {
         'defines': [

@@ -37,13 +37,17 @@ class HandleScopeWrap : public gc {
     Internal,
   };
 
-  HandleScopeWrap(v8::HandleScope* scope, HandleScopeWrap::Type type);
-  HandleScopeWrap(v8::SealHandleScope* scope, HandleScopeWrap::Type type);
-  HandleScopeWrap(v8::EscapableHandleScope* scope, HandleScopeWrap::Type type);
+  static HandleScopeWrap* create(IsolateWrap* isolate, v8::HandleScope* scope, HandleScopeWrap::Type type);
+  static HandleScopeWrap* create(IsolateWrap* isolate, v8::SealHandleScope* scope, HandleScopeWrap::Type type);
+  static HandleScopeWrap* create(IsolateWrap* isolate, v8::EscapableHandleScope* scope, HandleScopeWrap::Type type);
+
   Type type() const { return type_; }
   v8Scope_t* v8Scope() const { return v8scope_; }
 
  private:
+  HandleScopeWrap(v8::HandleScope* scope, HandleScopeWrap::Type type);
+  HandleScopeWrap(v8::SealHandleScope* scope, HandleScopeWrap::Type type);
+  HandleScopeWrap(v8::EscapableHandleScope* scope, HandleScopeWrap::Type type);
   HandleScopeWrap(HandleScopeWrap::Type type);
   void add(HandleWrap* value);
   bool remove(HandleWrap* value);

@@ -29,7 +29,8 @@ HandleScope::HandleScope(Isolate* isolate) {
   Initialize(isolate);
 
   IsolateWrap::fromV8(isolate_)->pushHandleScope(
-      new HandleScopeWrap(this, HandleScopeWrap::Type::Normal));
+      HandleScopeWrap::create(IsolateWrap::fromV8(isolate_),
+                              this, HandleScopeWrap::Type::Normal));
 }
 
 void HandleScope::Initialize(Isolate* isolate) {
@@ -105,7 +106,8 @@ EscapableHandleScope::EscapableHandleScope(Isolate* v8_isolate) {
 
   IsolateWrap::fromV8(v8_isolate)
       ->pushHandleScope(
-          new HandleScopeWrap(this, HandleScopeWrap::Type::Escapable));
+          HandleScopeWrap::create(IsolateWrap::fromV8(v8_isolate), 
+                                  this, HandleScopeWrap::Type::Escapable));
 }
 
 i::Address* EscapableHandleScope::Escape(i::Address* escape_value) {
@@ -133,7 +135,7 @@ SealHandleScope::SealHandleScope(Isolate* isolate)
     : isolate_(reinterpret_cast<i::Isolate*>(isolate)) {
   LWNODE_CALL_TRACE("%p", this);
   IsolateWrap::fromV8(isolate_)->pushHandleScope(
-      new HandleScopeWrap(this, HandleScopeWrap::Type::Sealed));
+      HandleScopeWrap::create(IsolateWrap::fromV8(isolate_), this, HandleScopeWrap::Type::Sealed));
 }
 
 SealHandleScope::~SealHandleScope() {

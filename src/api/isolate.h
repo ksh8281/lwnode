@@ -279,11 +279,15 @@ class IsolateWrap final : public v8::internal::Isolate {
   IsolateWrap();
 
   void InitializeGlobalSlots();
+  friend class HandleScopeWrap;
+  void* allocateHandleScopeWrap();
+  void releaseHandleScopeWrap(void*);
 
   GCVector<GCManagedObject*> eternals_;
   GCMap<BackingStoreRef*, int, BackingStoreComparator> backingStoreCounter_;
 
   GCVector<HandleScopeWrap*> handleScopes_;
+  GCVector<void*> handleScopePool_;
   GCVector<ContextWrap*> contextScopes_;
 
   PersistentRefHolder<SymbolRef> privateValuesSymbol_;
