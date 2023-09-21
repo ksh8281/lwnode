@@ -22,6 +22,7 @@
 #include <locale>
 #include <string>
 #include "api.h"
+#include "api/global.h"
 #include "api/context.h"
 #include "api/es-helper.h"
 #include "api/isolate.h"
@@ -65,9 +66,10 @@ bool convertUTF8ToUTF16le(char** buffer,
 
   size_t utf16Size = utf16.size() * 2;
 
-  *buffer = (char*)allocateStringBuffer(utf16Size + 1);
+  *buffer = (char*)allocateStringBuffer(utf16Size + 2);
   memcpy(*buffer, utf16.data(), utf16Size);
   (*buffer)[utf16Size] = '\0';
+  (*buffer)[utf16Size + 1] = '\0';
 
   *bufferSize = utf16Size;
   return true;
@@ -99,7 +101,8 @@ static void tryConvertUTF8ToLatin1(
 
   if (encodingHint == Encoding::kUnknown || encodingHint == Encoding::kLatin1) {
     if (UTF8Sequence::convertUTF8ToLatin1(
-            latin1String, buffer, buffer + bufferSize) == false) {
+            latin1String, buffer, buffer + bufferSize,
+            !EscargotShim::Global::flags()->isOn(Flag::Type::DisableCommentStrip)) == false) {
       isOneByteString = false;
     }
   } else if (encodingHint == Encoding::kUtf16) {
@@ -128,6 +131,16 @@ FileData Loader::createFileDataForReloadableString(
   Encoding encoding = Encoding::kUnknown;
 
   if (encodingHint == Encoding::kAscii) {
+    if (!EscargotShim::Global::flags()->isOn(Flag::Type::DisableCommentStrip)) {
+      std::basic_string<uint8_t, std::char_traits<uint8_t>> result =
+        stripCommentsFromLatin1SourceString((uint8_t*)bufferHolder.get(),
+          (uint8_t*)bufferHolder.get() + bufferSize);
+      bufferSize = result.length();
+      bufferHolder.reset(allocateStringBuffer(bufferSize + 1));
+      LWNODE_CHECK(bufferHolder.get() != nullptr);
+      ((uint8_t*)bufferHolder.get())[bufferSize] = '\0';
+      memcpy(bufferHolder.get(), result.data(), bufferSize);
+    }
     encoding = Encoding::kAscii;
   } else if (encodingHint == Encoding::kUtf16) {
     encoding = Encoding::kUtf16;

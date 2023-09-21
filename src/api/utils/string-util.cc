@@ -33,24 +33,136 @@ const uint32_t UTF8Sequence::s_offsetsFromUTF8[6] = {
     static_cast<uint32_t>(0xFA082080UL),
     static_cast<uint32_t>(0x82082080UL)};
 
+static bool isLineTerminator(char32_t ch)
+{
+  return ch == '\r' || ch == '\n' || ch == 0x2028 || ch == 0x2029;
+}
+
+template<typename InputType, typename StringReadCallback, typename ResultCharType,
+         typename ResultStringType, const bool willFailureWithNonLatin1Char>
+bool stripCommentsFromSourceString(InputType sequence, InputType endSequence,
+                                   StringReadCallback readCallback, ResultStringType& result)
+{
+   while (sequence < endSequence) {
+    char32_t character = readCallback(sequence);
+    if (character == '\'' || character == '"' || character == '`') {
+      auto quote = character;
+      result += (ResultCharType)character;
+      while (sequence < endSequence) {
+        character = readCallback(sequence);
+        if (willFailureWithNonLatin1Char && character > 255) {
+          return false;
+        }
+        result += (ResultCharType)character;
+        if (character == quote) {
+          break;
+        } else if (character == '\\') {
+          if (sequence + 1 < endSequence) {
+            InputType forwardSequence = sequence;
+            character = readCallback(forwardSequence);
+            if (character == quote) {
+              result += (ResultCharType)character;
+              sequence = forwardSequence;
+            } else if (character == '\\') {
+              result += (ResultCharType)character;
+              sequence = forwardSequence;
+            }
+          }
+        }
+      }
+      continue;
+    } else if (character == '/' && sequence + 1 < endSequence) {
+      character = readCallback(sequence);
+      if (character == '/' && (!result.size() || result.back() != '\\')) {
+        // skip singleline comment
+        do {
+          character = readCallback(sequence);
+        } while (sequence < endSequence && !isLineTerminator(character));
+        if (character == 0x0D && sequence + 1 < endSequence) {
+          InputType forwardSequence = sequence;
+          character = readCallback(forwardSequence);
+          if (character == 0x0A) {
+            sequence = forwardSequence;
+            character = '\n';
+          }
+        }
+      } else if (character == '*') {
+        // skip multiline comment
+        while (sequence < endSequence) {
+          character = readCallback(sequence);
+          if (character == '*' && sequence + 1 < endSequence) {
+             character = readCallback(sequence);
+             if (character == '/') {
+               break;
+             }
+          } else if (isLineTerminator(character)) {
+            if (character == 0x0D && sequence + 1 < endSequence) {
+              InputType forwardSequence = sequence;
+              character = readCallback(forwardSequence);
+              if (character == 0x0A) {
+                sequence = forwardSequence;
+              }
+            }
+            result += (ResultCharType)'\n';
+          }
+        }
+        continue;
+      } else {
+        result += (ResultCharType)'/';
+      }
+    }
+
+    if (willFailureWithNonLatin1Char && character > 255) {
+       return false;
+     }
+    result += (ResultCharType)character;
+  }
+  return true;
+}
+
+std::basic_string<uint8_t, std::char_traits<uint8_t>>
+  stripCommentsFromLatin1SourceString(const uint8_t* start, const uint8_t* end)
+{
+  std::basic_string<uint8_t, std::char_traits<uint8_t>> result;
+  stripCommentsFromSourceString<const unsigned char*,
+     char32_t (*)(const uint8_t*&), uint8_t,
+     std::basic_string<uint8_t, std::char_traits<uint8_t>>, false>
+     (start, end, [](const uint8_t*& sequence) -> char32_t {
+           auto ret = *sequence;
+           sequence++;
+           return ret;
+         }, result);
+  return result;
+}
+
 bool UTF8Sequence::convertUTF8ToLatin1(
     std::basic_string<unsigned char, std::char_traits<unsigned char>>&
         oneByteString,
     const unsigned char* sequence,
-    const unsigned char* endSequence) {
-  while (sequence < endSequence) {
-    char32_t character =
-        UTF8Sequence::read(sequence, UTF8Sequence::getLength(*sequence));
+    const unsigned char* endSequence,
+    bool stripComment) {
+  if (stripComment) {
+    return stripCommentsFromSourceString<const unsigned char*,
+      char32_t (*)(const unsigned char*&), unsigned char,
+      std::basic_string<unsigned char, std::char_traits<unsigned char>>, true>
+      (sequence, endSequence, [](const unsigned char*& sequence) -> char32_t {
+        return UTF8Sequence::read(sequence, UTF8Sequence::getLength(*sequence));
+      }, oneByteString);
+  } else {
+    while (sequence < endSequence) {
+      char32_t character =
+          UTF8Sequence::read(sequence, UTF8Sequence::getLength(*sequence));
 
-    // if character is out of acsii and latin1
-    if (character > 255) {
-      return false;
-    } else {
-      oneByteString += (unsigned char)character;
+      // if character is out of acsii and latin1
+      if (character > 255) {
+        return false;
+      } else {
+        oneByteString += (unsigned char)character;
+      }
     }
-  }
 
-  return true;
+    return true;
+  }
 }
 
 std::vector<std::string> strSplit(const std::string& str, char delimiter) {

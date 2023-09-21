@@ -59,6 +59,8 @@ bool strStartsWith(const char* str, const char (&prefix)[N]) {
 }
 
 std::vector<std::string> strSplit(const std::string& str, char delimiter);
+std::basic_string<uint8_t, std::char_traits<uint8_t>> stripCommentsFromLatin1SourceString(
+  const uint8_t* start, const uint8_t* end);
 
 class UTF8Sequence {
  public:
@@ -113,7 +115,8 @@ class UTF8Sequence {
   using u8string = std::basic_string<uint8_t, std::char_traits<uint8_t>>;
   static bool convertUTF8ToLatin1(u8string& latin1String,
                                   const uint8_t* sequence,
-                                  const uint8_t* endSequence);
+                                  const uint8_t* endSequence,
+                                  bool stripComment = false);
 
  private:
   static const uint32_t s_offsetsFromUTF8[6];

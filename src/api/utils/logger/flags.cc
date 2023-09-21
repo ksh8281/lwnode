@@ -46,6 +46,7 @@ void Flags::initFlags() {
   addFlag<FlagWithNegativeValues>("--trace-call=", Flag::Type::TraceCall, true);
   addFlag<Flag>("--internal-log", Flag::Type::InternalLog);
   addFlag<Flag>("--start-debug-server", Flag::Type::DebugServer);
+  addFlag<Flag>("--disable-comment-strip", Flag::Type::DisableCommentStrip);
 }
 
 bool Flag::isPrefixOf(const std::string& name) {

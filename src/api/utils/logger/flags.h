@@ -49,6 +49,7 @@ class Flag {
     InternalLog,
     LWNodeOther,
     DebugServer,
+    DisableCommentStrip,
   };
 
   Flag(const std::string& name, Type type, bool useAsPrefix = false)
