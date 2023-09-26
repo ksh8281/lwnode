@@ -11,6 +11,10 @@
 #include "inspector/worker_inspector.h"  // ParentInspectorHandle
 #endif
 
+#ifdef __POSIX__
+#include <sys/mman.h>
+#endif
+
 namespace node {
 using errors::TryCatchScope;
 using v8::Array;
@@ -76,19 +80,44 @@ MaybeLocal<Value> PrepareStackTraceCallback(Local<Context> context,
   return result;
 }
 
+#ifdef __POSIX__
+#define MMAP_MIN 2048
+void* MmapAlloc(size_t size)
+{
+    return mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+}
+#endif
+
 void* NodeArrayBufferAllocator::Allocate(size_t size) {
   void* ret;
-  if (zero_fill_field_ || per_process::cli_options->zero_fill_all_buffers)
-    ret = UncheckedCalloc(size);
-  else
-    ret = UncheckedMalloc(size);
+#ifdef  __POSIX__
+  if (size >= MMAP_MIN) {
+    ret = MmapAlloc(size);
+  } else {
+#endif
+    if (zero_fill_field_ || per_process::cli_options->zero_fill_all_buffers)
+      ret = UncheckedCalloc(size);
+    else
+      ret = UncheckedMalloc(size);
+#ifdef __POSIX__
+  }
+#endif
   if (LIKELY(ret != nullptr))
     total_mem_usage_.fetch_add(size, std::memory_order_relaxed);
   return ret;
 }
 
 void* NodeArrayBufferAllocator::AllocateUninitialized(size_t size) {
-  void* ret = node::UncheckedMalloc(size);
+  void* ret;
+#ifdef  __POSIX__
+  if (size >= MMAP_MIN) {
+    ret = MmapAlloc(size);
+  } else {
+#endif
+    ret = UncheckedMalloc(size);
+#ifdef __POSIX__
+  }
+#endif
   if (LIKELY(ret != nullptr))
     total_mem_usage_.fetch_add(size, std::memory_order_relaxed);
   return ret;
@@ -96,7 +125,32 @@ void* NodeArrayBufferAllocator::AllocateUninitialized(size_t size) {
 
 void* NodeArrayBufferAllocator::Reallocate(
     void* data, size_t old_size, size_t size) {
-  void* ret = UncheckedRealloc<char>(static_cast<char*>(data), size);
+  void* ret;
+#ifdef __POSIX__
+  if (old_size < MMAP_MIN && size < MMAP_MIN) {
+    ret = UncheckedRealloc<char>(static_cast<char*>(data), size);
+  } else if (old_size < MMAP_MIN && size >= MMAP_MIN) {
+    ret = MmapAlloc(size);
+    if (data) {
+      memcpy(ret, data, old_size);
+      free(data);
+    }
+  } else if (old_size >= MMAP_MIN && size < MMAP_MIN) {
+    ret = UncheckedMalloc<char>(size);
+    if (data) {
+      memcpy(ret, data, old_size);
+      munmap(data, old_size);
+    }
+  } else {
+    ret = MmapAlloc(size);
+    if (data) {
+      memcpy(ret, data, old_size);
+      munmap(data, old_size);
+    }
+  }
+#else
+  ret = UncheckedRealloc<char>(static_cast<char*>(data), size);
+#endif
   if (LIKELY(ret != nullptr) || UNLIKELY(size == 0))
     total_mem_usage_.fetch_add(size - old_size, std::memory_order_relaxed);
   return ret;
@@ -104,7 +158,15 @@ void* NodeArrayBufferAllocator::Reallocate(
 
 void NodeArrayBufferAllocator::Free(void* data, size_t size) {
   total_mem_usage_.fetch_sub(size, std::memory_order_relaxed);
-  free(data);
+#ifdef  __POSIX__
+  if (size >= MMAP_MIN) {
+    munmap(data, size);
+  } else {
+#endif
+    free(data);
+#ifdef __POSIX__
+  }
+#endif
 }
 
 DebuggingArrayBufferAllocator::~DebuggingArrayBufferAllocator() {

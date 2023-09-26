@@ -18,6 +18,7 @@
 
 #include <iomanip>
 #include <sstream>
+#include <malloc.h>
 
 #include "api/global.h"
 #include "handle.h"
