@@ -127,6 +127,10 @@ class LWNodeMainRunner {
 
     Context::Scope context_scope(env_->context());
 
+    if (on_main_env_creation_callback_) {
+      on_main_env_creation_callback_(env_->context());
+    }
+
     if (exit_code == 0) {
       LoadEnvironment(env_.get());
 
@@ -193,10 +197,17 @@ class LWNodeMainRunner {
     promise_ = std::move(promise);
   }
 
+  void SetOnMainEnvCreationCallback(
+      const std::function<void(v8::Local<v8::Context>)>& callback) {
+    on_main_env_creation_callback_ = callback;
+  }
+
  private:
   std::unique_ptr<node::ArrayBufferAllocator> array_buffer_allocator_;
   Environment* environment_ = nullptr;
   std::promise<void> promise_;
+  std::function<void(v8::Local<v8::Context>)> on_main_env_creation_callback_{
+      nullptr};
 };
 
 }  // namespace LWNode

@@ -95,6 +95,15 @@ function wrapLWNodeMethods(binding) {
         return binding.hasSystemInfo.apply(null, args);
       }
     },
+    sendMessageSync: (message) => {
+      if (typeof message !== "string") {
+        throw new TypeError("The message argument must be a string");
+      }
+
+      if (binding.sendMessageSync) {
+        return binding.sendMessageSync(message);
+      }
+    }
   };
 
   setupMessagePort(object, binding);
