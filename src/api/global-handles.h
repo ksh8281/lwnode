@@ -84,6 +84,7 @@ class GcObjectInfo {
 class GlobalHandles final : public v8::internal::GlobalHandles {
  public:
   GlobalHandles(IsolateWrap* isolate);
+  void* operator new(size_t size);
 
   size_t PostGarbageCollectionProcessing(
       /*const v8::GCCallbackFlags gc_callback_flags*/);
@@ -108,7 +109,7 @@ class GlobalHandles final : public v8::internal::GlobalHandles {
   void removeGcObjectInfo(ValueWrap* lwValue);
 
  private:
-  GCUnorderedMap<ValueWrap*, size_t> persistentValues_;
+  GCUnorderedMap<ValueWrap*, StorePositiveNumberAsOddNumber> persistentValues_;
   IsolateWrap* isolate_{nullptr};
   struct ObjectInfoComparator {
     bool operator()(const GcObjectInfo* a, const GcObjectInfo* b) const {

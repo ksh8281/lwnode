@@ -25,6 +25,32 @@
 #include "gc-container.h"
 #include "sf-vector.h"
 
+// from deps/escargot/src/api
+#include "../../third_party/robin_map/include/tsl/robin_map.h"
+#include "../../third_party/robin_map/include/tsl/robin_set.h"
+
+class StorePositiveNumberAsOddNumber {
+ public:
+  StorePositiveNumberAsOddNumber(const size_t& src = 0) {
+    m_data = (src << 1) | 0x1;
+  }
+
+  operator size_t() const { return m_data >> 1; }
+
+ private:
+  size_t m_data;
+};
+
+class StoreIntAsOddNumber {
+ public:
+  StoreIntAsOddNumber(const int& src = 0) { m_data = (src << 1) | 0x1; }
+
+  operator int() const { return m_data >> 1; }
+
+ private:
+  int m_data;
+};
+
 #include <string>
 
 // typedef of GC-aware vector
@@ -47,19 +73,15 @@ class GCVector : public GCVectorT<T, isEraseStrategyStrict, Allocator>,
                  public gc {};
 #endif
 
-// typedef of GC-aware list
-template <typename T, typename Allocator = GCUtil::gc_malloc_allocator<T>>
-using GCListT = std::list<T, Allocator>;
-
-template <typename T, typename Allocator = GCUtil::gc_malloc_allocator<T>>
-class GCList : public GCListT<T, Allocator>, public gc {};
-
-// typedef of GC-aware deque
-template <typename T, typename Allocator = GCUtil::gc_malloc_allocator<T>>
-using GCDequeT = std::deque<T, Allocator>;
-
-template <typename T, typename Allocator = GCUtil::gc_malloc_allocator<T>>
-class GCDeque : public GCDequeT<T, Allocator>, public gc {};
+template <class Key,
+          class T,
+          class Hash = std::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<std::pair<Key, T>>,
+          bool StoreHash = false,
+          class GrowthPolicy = tsl::rh::power_of_two_growth_policy<2>>
+using HashMap =
+    tsl::robin_map<Key, T, Hash, KeyEqual, Allocator, StoreHash, GrowthPolicy>;
 
 // typedef of GC-aware unordered_map
 template <typename Key,
@@ -68,8 +90,7 @@ template <typename Key,
           typename Predicate = std::equal_to<Key>,
           typename Allocator =
               GCUtil::gc_malloc_allocator<std::pair<Key const, Value>>>
-using GCUnorderedMapT =
-    std::unordered_map<Key, Value, Hasher, Predicate, Allocator>;
+using GCUnorderedMapT = HashMap<Key, Value, Hasher, Predicate, Allocator>;
 
 template <typename Key,
           typename Value,
@@ -86,48 +107,40 @@ template <typename Key,
           typename Hasher = std::hash<Key>,
           typename Predicate = std::equal_to<Key>,
           typename Allocator =
-              GCUtil::gc_malloc_allocator<std::pair<Key const, Value>>>
-using GCUnorderedMultiMapT =
-    std::unordered_multimap<Key, Value, Hasher, Predicate, Allocator>;
+              GCUtil::gc_malloc_atomic_allocator<std::pair<Key const, Value>>>
+using GCAtomicUnorderedMapT = HashMap<Key, Value, Hasher, Predicate, Allocator>;
 
 template <typename Key,
           typename Value,
           typename Hasher = std::hash<Key>,
           typename Predicate = std::equal_to<Key>,
           typename Allocator =
-              GCUtil::gc_malloc_allocator<std::pair<Key const, Value>>>
-class GCUnorderedMultiMap
-    : public GCUnorderedMultiMapT<Key, Value, Hasher, Predicate, Allocator>,
+              GCUtil::gc_malloc_atomic_allocator<std::pair<Key const, Value>>>
+class GCAtomicUnorderedMap
+    : public GCAtomicUnorderedMapT<Key, Value, Hasher, Predicate, Allocator>,
       public gc {};
 
-// typedef of GC-aware map
-template <typename Key,
-          typename Value,
-          typename Comparator,
-          typename Allocator =
-              GCUtil::gc_malloc_allocator<std::pair<Key const, Value>>>
-using GCMapT = std::map<Key, Value, Comparator, Allocator>;
-
-template <typename Key,
-          typename Value,
-          typename Comparator,
-          typename Allocator =
-              GCUtil::gc_malloc_allocator<std::pair<Key const, Value>>>
-class GCMap : public GCMapT<Key, Value, Comparator, Allocator>, public gc {};
+template <class Key,
+          class Hash = std::hash<Key>,
+          class KeyEqual = std::equal_to<Key>,
+          class Allocator = std::allocator<Key>,
+          bool StoreHash = false,
+          class GrowthPolicy = tsl::rh::power_of_two_growth_policy<2>>
+using HashSet =
+    tsl::robin_set<Key, Hash, KeyEqual, Allocator, StoreHash, GrowthPolicy>;
 
 // typedef of GC-aware unordered_set
 template <typename T,
           typename Hasher = std::hash<T>,
           typename Predicate = std::equal_to<T>,
           typename Allocator = GCUtil::gc_malloc_allocator<T>>
-using GCUnorderedSetT = std::unordered_set<T, Hasher, Predicate, Allocator>;
-
-template <typename T,
-          typename Hasher = std::hash<T>,
-          typename Predicate = std::equal_to<T>,
-          typename Allocator = GCUtil::gc_malloc_allocator<T>>
-class GCUnorderedSet : public GCUnorderedSetT<T, Hasher, Predicate, Allocator>,
+class GCUnorderedSet : public HashSet<T, Hasher, Predicate, Allocator>,
                        public gc {};
+
+inline void markHashSet(GC_word* desc, size_t base) {
+  GC_set_bit(desc, base + 1);  // m_ht.m_buckets_data
+  GC_set_bit(desc, base + 4);  // m_ht.m_buckets
+}
 
 namespace Escargot {
 class ValueRef;

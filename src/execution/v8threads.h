@@ -36,6 +36,8 @@ class ThreadManager : public gc {
 
   bool IsLockedByCurrentThread() const;
 
+  void* operator new(size_t size) { return GC_MALLOC_ATOMIC(size); }
+
   std::mutex mutex_;
   std::atomic<std::thread::id> mutex_owner_;
 };

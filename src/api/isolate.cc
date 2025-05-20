@@ -29,6 +29,15 @@ namespace internal {
 
 using namespace EscargotShim;
 
+void Isolate::fillGCDescriptor(GC_word* desc) {
+  GC_set_bit(desc, GC_WORD_OFFSET(Isolate, scheduled_exception_));
+  GC_set_bit(desc, GC_WORD_OFFSET(Isolate, global_handles_));
+  GC_set_bit(desc, GC_WORD_OFFSET(Isolate, try_catch_handler_));
+  GC_set_bit(desc, GC_WORD_OFFSET(Isolate, pending_exception_));
+  GC_set_bit(desc, GC_WORD_OFFSET(Isolate, pending_message_obj_));
+  GC_set_bit(desc, GC_WORD_OFFSET(Isolate, prepareStackTraceRecursion_));
+}
+
 // 'exception_' is of type ValueWrap*. Ref: api-exception.cc
 void Isolate::SetTerminationOnExternalTryCatch() {
   LWNODE_CALL_TRACE_ID(TRYCATCH, "try_catch_handler_: %p", try_catch_handler_);
@@ -268,6 +277,39 @@ namespace EscargotShim {
 */
 LWNODE_EXPORT THREAD_LOCAL IsolateWrap* IsolateWrap::s_currentIsolate;
 LWNODE_EXPORT THREAD_LOCAL IsolateWrap* IsolateWrap::s_previousIsolate;
+
+void IsolateWrap::fillGCDescriptor(GC_word* desc) {
+  Isolate::fillGCDescriptor(desc);
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, eternals_));
+  markHashSet(desc, GC_WORD_OFFSET(IsolateWrap, backingStoreCounter_));
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, handleScopes_));
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, contextScopes_));
+
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, privateValuesSymbol_));
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, apiSymbols_));
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, apiPrivateSymbols_));
+
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, vmInstance_));
+
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, release_lock_));
+  for (size_t i = 0; i < internal::Internals::kRootIndexSize; i++) {
+    GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, globalSlot_) + i);
+  }
+
+  GC_set_bit(desc, GC_WORD_OFFSET(IsolateWrap, threadManager_));
+}
+
+void* IsolateWrap::operator new(size_t size) {
+  static bool typeInited = false;
+  static GC_descr descr;
+  if (!typeInited) {
+    GC_word desc[GC_BITMAP_SIZE(IsolateWrap)] = {0};
+    fillGCDescriptor(desc);
+    descr = GC_make_descriptor(desc, GC_WORD_LEN(IsolateWrap));
+    typeInited = true;
+  }
+  return GC_MALLOC_EXPLICITLY_TYPED(size, descr);
+}
 
 IsolateWrap::IsolateWrap() {
   LWNODE_CALL_TRACE_ID(ISOWRAP, "malc: %p", this);
@@ -552,7 +594,7 @@ void IsolateWrap::addEternal(GCManagedObject* value) {
 void IsolateWrap::addBackingStore(BackingStoreRef* value) {
   auto itr = backingStoreCounter_.find(value);
   if (itr != backingStoreCounter_.end()) {
-    ++itr->second;
+    itr.value() = itr.value() + 1;
   } else {
     backingStoreCounter_.insert(std::make_pair(value, 1));
   }
@@ -564,7 +606,7 @@ void IsolateWrap::removeBackingStore(BackingStoreRef* value) {
     if (itr->second == 1) {
       backingStoreCounter_.erase(itr);
     } else {
-      --itr->second;
+      itr.value() = itr.value() - 1;
     }
   } else {
     LWNODE_CHECK_MSG(false, "increment/decrement count do not match");

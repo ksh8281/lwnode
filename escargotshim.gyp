@@ -89,6 +89,8 @@
         '-Wno-unused-result',
         '-fexceptions',
         '-fvisibility=hidden',
+        '-Wno-invalid-offsetof',
+        '-Wno-mismatched-new-delete',
       ],
       'direct_dependent_settings': {
         'defines': [

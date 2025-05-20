@@ -53,6 +53,19 @@ namespace EscargotShim {
 GlobalHandles::GlobalHandles(IsolateWrap* isolate)
     : v8::internal::GlobalHandles(isolate), isolate_(isolate) {}
 
+void* GlobalHandles::operator new(size_t size) {
+  static bool typeInited = false;
+  static GC_descr descr;
+  if (!typeInited) {
+    GC_word desc[GC_BITMAP_SIZE(GlobalHandles)] = {0};
+    GC_set_bit(desc, GC_WORD_OFFSET(GlobalHandles, isolate_));
+    markHashSet(desc, GC_WORD_OFFSET(GlobalHandles, persistentValues_));
+    descr = GC_make_descriptor(desc, GC_WORD_LEN(GlobalHandles));
+    typeInited = true;
+  }
+  return GC_MALLOC_EXPLICITLY_TYPED(size, descr);
+}
+
 void GlobalHandles::dispose() {
   LWNODE_CALL_TRACE_ID(GLOBALHANDLES);
   persistentValues_.clear();
@@ -69,7 +82,7 @@ void GlobalHandles::create(ValueWrap* lwValue) {
   if (iter == persistentValues_.end()) {
     persistentValues_.emplace(lwValue, 1);
   } else {
-    ++iter->second;
+    iter.value() = iter.value() + 1;
     // TODO:
     LWNODE_CALL_TRACE_ID(GLOBALHANDLES,
                          "Persistent value was created multiple times: %p",
@@ -83,7 +96,7 @@ bool GlobalHandles::destroy(ValueWrap* lwValue) {
     if (iter->second == 1) {
       persistentValues_.erase(iter);
     } else {
-      --iter->second;
+      iter.value() = iter.value() - 1;
     }
     return true;
   }

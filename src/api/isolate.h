@@ -110,6 +110,7 @@ class Isolate : public gc {
   EscargotShim::GlobalHandles* global_handles() { return global_handles_; }
 
  protected:
+  static void fillGCDescriptor(GC_word* desc);
   void set_pending_exception(Escargot::ValueRef* exception_obj);
   void set_pending_message_obj(Escargot::ValueRef* message_obj);
   void clear_pending_exception();
@@ -149,17 +150,13 @@ class ContextWrap;
 
 typedef gc GCManagedObject;
 
-struct BackingStoreComparator {
-  bool operator()(const BackingStoreRef* a, const BackingStoreRef* b) const {
-    return a < b;
-  }
-};
-
 class IsolateWrap final : public v8::internal::Isolate {
  public:
   enum class State { None, Active, Disposed };
 
   ~IsolateWrap();
+
+  void* operator new(size_t size);
 
   const std::string PRIVATE_VALUES = "__private_values__";
 
@@ -280,12 +277,14 @@ class IsolateWrap final : public v8::internal::Isolate {
   State getState() { return state_; }
 
  private:
+  static void fillGCDescriptor(GC_word* desc);
   IsolateWrap();
 
   void InitializeGlobalSlots();
 
   GCVector<GCManagedObject*> eternals_;
-  GCMap<BackingStoreRef*, int, BackingStoreComparator> backingStoreCounter_;
+  GCUnorderedMap<BackingStoreRef*, StorePositiveNumberAsOddNumber>
+      backingStoreCounter_;
 
   GCVector<HandleScopeWrap*> handleScopes_;
   GCVector<ContextWrap*> contextScopes_;
